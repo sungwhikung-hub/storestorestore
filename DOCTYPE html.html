@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D 스토어 (V26: 상품 관리 에디션)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .hidden { display: none !important; }
+        .tab-active { color: #22c55e; border-bottom: 3px solid #22c55e; }
+        .chat-bubble-me { background-color: #22c55e; color: white; border-radius: 18px 18px 4px 18px; align-self: flex-end; }
+        .chat-bubble-other { background-color: #f1f5f9; color: #1e293b; border-radius: 18px 18px 18px 4px; align-self: flex-start; }
+        @keyframes scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        .animate-scroll { animation: scroll 25s linear infinite; }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+
+    <div class="bg-slate-900 text-white py-2 overflow-hidden sticky top-0 z-[60]">
+        <div class="animate-scroll whitespace-nowrap text-[10px] font-bold">
+            📢 [V26] 관리자 전용 상품 추가/삭제 기능 업데이트! 이제 실시간으로 상점의 메뉴를 관리할 수 있습니다. / 1:1 메시지로 문의를 남겨주세요.
+        </div>
+    </div>
+
+    <div id="auth-section" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md p-10 rounded-[3rem] shadow-2xl text-center border">
+            <div id="login-form">
+                <div class="text-6xl font-black text-green-500 mb-2">D</div>
+                <h2 class="text-xl font-bold mb-8 italic text-slate-400 uppercase tracking-widest">D 스토어 V26</h2>
+                <div class="space-y-4">
+                    <input type="text" id="login-id" placeholder="아이디" class="w-full p-4 bg-slate-50 rounded-2xl border outline-none focus:border-green-500">
+                    <input type="password" id="login-pw" placeholder="비밀번호" class="w-full p-4 bg-slate-50 rounded-2xl border outline-none focus:border-green-500">
+                    <button onclick="handleLogin()" class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-green-600">로그인</button>
+                </div>
+                <button onclick="toggleAuth('signup')" class="mt-8 text-sm text-slate-400 font-bold underline">회원가입 하기</button>
+            </div>
+            <div id="signup-form" class="hidden">
+                <h2 class="text-2xl font-black mb-6">회원가입</h2>
+                <input type="text" id="signup-id" placeholder="희망 아이디 (닉네임)" class="w-full p-4 bg-slate-50 rounded-2xl border mb-3 outline-none">
+                <input type="password" id="signup-pw" placeholder="비밀번호" class="w-full p-4 bg-slate-50 rounded-2xl border mb-6 outline-none">
+                <button onclick="handleSignup()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold">가입하기</button>
+                <button onclick="toggleAuth('login')" class="mt-6 text-sm text-slate-400 block w-full text-center">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-section" class="hidden">
+        <header class="bg-white/80 backdrop-blur-md border-b sticky top-[34px] z-50">
+            <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+                <div class="flex items-center gap-8">
+                    <span class="text-3xl font-black text-green-500 cursor-pointer" onclick="switchView('shop')">D</span>
+                    <nav class="flex gap-6 font-bold text-sm text-slate-400">
+                        <button id="nav-shop" onclick="switchView('shop')" class="tab-active py-2">스토어</button>
+                        <button id="nav-mypage" onclick="switchView('mypage')" class="py-2">마이페이지</button>
+                        <button id="nav-chat" onclick="switchView('chat')" class="py-2">메시지</button>
+                    </nav>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-3 bg-slate-100 pl-4 pr-2 py-2 rounded-2xl border border-slate-200">
+                        <span id="user-info" class="text-[11px] font-bold text-slate-600"></span>
+                        <div class="bg-white px-3 py-1.5 rounded-xl border border-slate-200"><span id="user-balance" class="font-black text-green-600 text-[11px]">0원</span></div>
+                        <button onclick="openChargeModal()" class="bg-green-500 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold">충전</button>
+                    </div>
+                    <button onclick="handleLogout()" class="text-xs font-bold text-slate-300 hover:text-red-500">로그아웃</button>
+                </div>
+            </div>
+        </header>
+
+        <main id="view-shop" class="max-w-7xl mx-auto p-6 md:p-10">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-10">
+                <div class="lg:col-span-3">
+                    <div class="flex justify-between items-center mb-10">
+                        <h2 class="text-3xl font-black text-slate-800">추천 상품</h2>
+                        <button id="admin-btn" onclick="toggleAdminModal()" class="hidden bg-slate-900 text-white text-[11px] px-6 py-3 rounded-2xl font-bold shadow-lg">관리자 센터</button>
+                    </div>
+                    <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8"></div>
+                </div>
+                <aside>
+                    <div class="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 sticky top-32">
+                        <h3 class="font-black text-xl mb-6">장바구니 <span id="cart-count" class="text-xs bg-green-50 text-green-600 px-2 py-1 rounded-lg">0</span></h3>
+                        <div id="cart-items" class="space-y-4 mb-8 max-h-48 overflow-y-auto text-xs font-bold text-slate-500"></div>
+                        
+                        <div class="mb-6 p-5 bg-slate-50 rounded-[2rem] border border-slate-200 text-xs font-bold">
+                            <p class="text-[10px] text-slate-400 mb-4 uppercase">수령 방식</p>
+                            <div class="flex gap-4 mb-4">
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="delivery-type" value="직거래" checked onclick="toggleAddressField(false)"> 직거래</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="delivery-type" value="배달" onclick="toggleAddressField(true)"> 배달</label>
+                            </div>
+                            <div id="address-container" class="hidden mt-2">
+                                <input type="text" id="order-address" placeholder="배달 상세 주소" class="w-full p-4 rounded-2xl bg-white border border-slate-200 outline-none focus:ring-1 ring-green-500">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between text-2xl font-black mb-8 border-t pt-6"><span>합계</span><span id="final-price" class="text-green-600">0원</span></div>
+                        <button onclick="checkout()" class="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black shadow-lg">결제하기</button>
+                    </div>
+                </aside>
+            </div>
+        </main>
+
+        <main id="view-mypage" class="max-w-3xl mx-auto p-6 md:p-10 hidden"><h2 class="text-3xl font-black mb-10">내 주문 내역</h2><div id="mypage-order-list" class="space-y-4"></div></main>
+        <main id="view-chat" class="max-w-2xl mx-auto p-6 md:p-10 hidden">
+            <h2 class="text-3xl font-black mb-10">관리자 문의</h2>
+            <div class="bg-white rounded-[2.5rem] shadow-xl border overflow-hidden flex flex-col h-[500px]">
+                <div id="chat-window" class="flex-1 p-6 overflow-y-auto flex flex-col gap-3 bg-slate-50"></div>
+                <div class="p-4 bg-white border-t flex gap-2"><input type="text" id="chat-input" placeholder="메시지를 입력하세요..." class="flex-1 p-4 rounded-2xl bg-slate-100 outline-none text-sm font-bold"><button onclick="sendMessage('USER')" class="bg-green-500 text-white px-6 rounded-2xl font-bold">전송</button></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="admin-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-6xl rounded-[3rem] p-10 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-8 border-b pb-6">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-2xl font-black">관리자 센터</h2>
+                    <nav class="flex bg-slate-100 p-1 rounded-2xl gap-1 ml-4 text-[11px] font-bold">
+                        <button onclick="switchAdminTab('products')" id="btn-tab-products" class="px-4 py-2 rounded-xl">상품 관리</button>
+                        <button onclick="switchAdminTab('orders')" id="btn-tab-orders" class="px-4 py-2 rounded-xl">주문 내역</button>
+                        <button onclick="switchAdminTab('charge')" id="btn-tab-charge" class="px-4 py-2 rounded-xl">충전 관리</button>
+                        <button onclick="switchAdminTab('messages')" id="btn-tab-messages" class="px-4 py-2 rounded-xl">메시지함</button>
+                        <button onclick="switchAdminTab('settings')" id="btn-tab-settings" class="px-4 py-2 rounded-xl">계좌 설정</button>
+                    </nav>
+                </div>
+                <button onclick="toggleAdminModal()" class="text-3xl">&times;</button>
+            </div>
+
+            <div id="admin-tab-products" class="hidden overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="bg-slate-50 p-6 rounded-[2rem] border h-fit">
+                        <h4 class="text-xs font-black mb-4 text-slate-400 uppercase">신규 상품 등록</h4>
+                        <div class="space-y-3">
+                            <input type="text" id="new-p-name" placeholder="상품명" class="w-full p-3 rounded-xl border text-xs outline-none">
+                            <input type="number" id="new-p-price" placeholder="가격(원)" class="w-full p-3 rounded-xl border text-xs outline-none">
+                            <input type="text" id="new-p-image" placeholder="이미지 URL (선택사항)" class="w-full p-3 rounded-xl border text-xs outline-none">
+                            <button onclick="addNewProduct()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-xs shadow-lg">상점 진열하기</button>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <table class="w-full text-xs text-left">
+                            <thead class="text-slate-400 border-b"><tr class="font-bold"><th class="pb-3">상품명</th><th class="pb-3">가격</th><th class="pb-3 text-right">관리</th></tr></thead>
+                            <tbody id="admin-product-list-body" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="admin-tab-orders" class="hidden overflow-y-auto h-[50vh]"><table class="w-full text-[10px] text-left"><tbody id="admin-order-list" class="divide-y"></tbody></table></div>
+            
+            <div id="admin-tab-charge" class="hidden overflow-y-auto h-[50vh]"><table class="w-full text-xs text-left"><tbody id="admin-charge-list" class="divide-y"></tbody></table></div>
+            
+            <div id="admin-tab-messages" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6 h-[50vh]">
+                <div class="bg-slate-50 rounded-3xl p-4 overflow-y-auto border"><div id="admin-chat-user-list" class="space-y-2"></div></div>
+                <div class="md:col-span-2 bg-white rounded-3xl border flex flex-col overflow-hidden">
+                    <div id="admin-chat-window" class="flex-1 p-6 overflow-y-auto flex flex-col gap-2 bg-slate-50 text-xs font-bold"></div>
+                    <div id="admin-chat-controls" class="p-4 bg-white border-t flex gap-2 hidden">
+                        <input type="text" id="admin-chat-input" placeholder="답장 입력..." class="flex-1 p-3 rounded-xl bg-slate-100 outline-none text-xs font-bold">
+                        <button onclick="sendMessage('ADMIN')" class="bg-slate-900 text-white px-5 rounded-xl font-bold">전송</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="admin-tab-settings" class="hidden max-w-md mx-auto w-full"><textarea id="admin-account-input" class="w-full h-32 p-4 rounded-2xl border text-sm mb-4 outline-none"></textarea><button onclick="saveStoreSettings()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold">계좌정보 업데이트</button></div>
+        </div>
+    </div>
+
+    <div id="charge-modal" class="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 shadow-2xl text-center border">
+            <h2 class="text-2xl font-black mb-2">잔액 충전</h2>
+            <div id="charge-account-display" class="bg-slate-50 p-4 rounded-2xl mb-6 text-[10px] font-bold border border-dashed text-slate-500"></div>
+            <input type="text" id="charge-name" placeholder="입금자 성함" class="w-full p-4 bg-slate-50 rounded-2xl mb-3 border text-center font-bold outline-none">
+            <input type="number" id="charge-amount" placeholder="충전할 금액" class="w-full p-4 bg-slate-50 rounded-2xl mb-8 border text-center font-black text-2xl outline-none">
+            <div class="flex gap-3">
+                <button onclick="requestCharge()" class="flex-1 bg-green-500 text-white py-4 rounded-2xl font-bold">신청</button>
+                <button onclick="closeChargeModal()" class="flex-1 bg-slate-100 py-4 rounded-2xl font-bold">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DB_KEY = "D_STORE_V26";
+        let users = JSON.parse(localStorage.getItem(DB_KEY + '_users')) || [];
+        let currentUser = JSON.parse(localStorage.getItem(DB_KEY + '_session')) || null;
+        let products = JSON.parse(localStorage.getItem(DB_KEY + '_products')) || [
+            { id: 1, name: '에티오피아 예가체프 G1 200g', price: 18000, image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400' },
+            { id: 2, name: '콜드브루 원액 500ml', price: 15000, image: 'https://images.unsplash.com/photo-1544190807-c7379538cbb4?w=400' }
+        ];
+        let orders = JSON.parse(localStorage.getItem(DB_KEY + '_orders')) || [];
+        let chargeRequests = JSON.parse(localStorage.getItem(DB_KEY + '_charge_req')) || [];
+        let messages = JSON.parse(localStorage.getItem(DB_KEY + '_messages')) || [];
+        let storeSettings = JSON.parse(localStorage.getItem(DB_KEY + '_settings')) || { account: "신한은행 110-123-456789 (D스토어)" };
+
+        let cart = [];
+        let selectedUserForChat = null;
+
+        // --- 인증 로직 ---
+        function toggleAuth(type) { document.getElementById('login-form').classList.toggle('hidden', type === 'signup'); document.getElementById('signup-form').classList.toggle('hidden', type === 'login'); }
+        function handleSignup() {
+            const id = document.getElementById('signup-id').value.trim();
+            const pw = document.getElementById('signup-pw').value.trim();
+            if(!id || !pw) return alert("입력 정보 부족");
+            if(users.some(u => u.id === id)) return alert("중복된 아이디입니다.");
+            users.push({ id, pw, balance: 0, role: id.toLowerCase() === 'admin' ? 'ADMIN' : 'USER' });
+            localStorage.setItem(DB_KEY + '_users', JSON.stringify(users));
+            alert("회원가입 완료!"); toggleAuth('login');
+        }
+        function handleLogin() {
+            const id = document.getElementById('login-id').value;
+            const pw = document.getElementById('login-pw').value;
+            const user = users.find(u => u.id === id && u.pw === pw);
+            if(user) { currentUser = user; localStorage.setItem(DB_KEY + '_session', JSON.stringify(currentUser)); showMain(); }
+            else alert("로그인 정보 불일치");
+        }
+        function handleLogout() { localStorage.removeItem(DB_KEY + '_session'); location.reload(); }
+        function showMain() {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('main-section').classList.remove('hidden');
+            document.getElementById('user-info').innerText = currentUser.id + "님";
+            if(currentUser.role === 'ADMIN') document.getElementById('admin-btn').classList.remove('hidden');
+            updateUI();
+        }
+
+        // --- UI 업데이트 ---
+        function updateUI() {
+            const freshUser = users.find(u => u.id === currentUser.id);
+            document.getElementById('user-balance').innerText = freshUser.balance.toLocaleString() + '원';
+            renderShop(); renderAdminProducts(); renderAdminOrders(); renderAdminChargeList(); renderAdminChatUserList();
+            if(document.getElementById('view-chat').offsetParent) renderUserChat();
+        }
+
+        // --- 상품 관리 (V26: 추가 및 삭제) ---
+        function addNewProduct() {
+            const name = document.getElementById('new-p-name').value.trim();
+            const price = parseInt(document.getElementById('new-p-price').value);
+            const img = document.getElementById('new-p-image').value.trim() || 'https://via.placeholder.com/400x300?text=Product';
+
+            if(!name || isNaN(price)) return alert("상품명과 가격을 정확히 입력하세요.");
+
+            const newProduct = { id: Date.now(), name, price, image: img };
+            products.unshift(newProduct);
+            localStorage.setItem(DB_KEY + '_products', JSON.stringify(products));
+            
+            // 입력창 초기화
+            document.getElementById('new-p-name').value = '';
+            document.getElementById('new-p-price').value = '';
+            document.getElementById('new-p-image').value = '';
+
+            alert("상품이 추가되었습니다.");
+            updateUI();
+        }
+
+        function deleteProduct(id) {
+            if(!confirm("이 상품을 삭제하시겠습니까?")) return;
+            products = products.filter(p => p.id !== id);
+            localStorage.setItem(DB_KEY + '_products', JSON.stringify(products));
+            updateUI();
+        }
+
+        function renderAdminProducts() {
+            const listBody = document.getElementById('admin-product-list-body');
+            listBody.innerHTML = products.map(p => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-4 font-bold text-slate-700">${p.name}</td>
+                    <td class="font-black text-slate-500">${p.price.toLocaleString()}원</td>
+                    <td class="text-right py-4">
+                        <button onclick="deleteProduct(${p.id})" class="bg-red-50 text-red-500 px-3 py-1 rounded-lg font-bold hover:bg-red-500 hover:text-white transition">삭제</button>
+                    </td>
+                </tr>`).join('') || '<tr><td colspan="3" class="text-center py-10 text-slate-400">등록된 상품이 없습니다.</td></tr>';
+        }
+
+        // --- 스토어 & 주문 ---
+        function renderShop() {
+            document.getElementById('product-list').innerHTML = products.map(p => `
+                <div class="bg-white p-6 rounded-[2.5rem] border hover:shadow-lg transition">
+                    <img src="${p.image}" class="w-full h-40 object-cover rounded-[2rem] mb-4 shadow-sm">
+                    <h3 class="font-bold text-xs mb-1 text-slate-800">${p.name}</h3>
+                    <div class="flex justify-between items-center"><span class="font-black text-sm">${p.price.toLocaleString()}원</span>
+                    <button onclick="addToCart(${p.id})" class="bg-green-500 text-white px-4 py-2 rounded-xl text-[10px] font-bold">담기</button></div>
+                </div>`).join('') || '<p class="col-span-full text-center py-20 text-slate-400 font-bold">현재 상점에 진열된 상품이 없습니다.</p>';
+        }
+
+        function addToCart(id) { cart.push(products.find(p => p.id === id)); updateCart(); }
+        function updateCart() {
+            const total = cart.reduce((s, i) => s + i.price, 0);
+            document.getElementById('cart-items').innerHTML = cart.map((i, idx) => `<div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl"><span>${i.name}</span><button onclick="removeFromCart(${idx})" class="text-red-400">X</button></div>`).join('');
+            document.getElementById('cart-count').innerText = cart.length;
+            document.getElementById('final-price').innerText = total.toLocaleString() + '원';
+        }
+        function removeFromCart(idx) { cart.splice(idx, 1); updateCart(); }
+        function toggleAddressField(show) { document.getElementById('address-container').classList.toggle('hidden', !show); }
+        function checkout() {
+            const total = cart.reduce((s, i) => s + i.price, 0);
+            const freshUser = users.find(u => u.id === currentUser.id);
+            if(!cart.length || freshUser.balance < total) return alert("장바구니 확인 혹은 잔액 부족");
+            const type = document.querySelector('input[name="delivery-type"]:checked').value;
+            const addr = document.getElementById('order-address').value.trim();
+            if(type === '배달' && !addr) return alert("상세 주소를 입력하세요.");
+            freshUser.balance -= total;
+            orders.unshift({ id: Date.now(), user: currentUser.id, items: cart.map(i => i.name).join(', '), total, type, address: type === '배달' ? addr : '직거래', date: new Date().toLocaleString() });
+            cart = []; updateCart(); localStorage.setItem(DB_KEY + '_users', JSON.stringify(users)); localStorage.setItem(DB_KEY + '_orders', JSON.stringify(orders));
+            alert("결제 및 주문이 완료되었습니다!"); updateUI();
+        }
+
+        // --- 충전 & 메시지 & 유틸리티 (기존 로직 유지) ---
+        function approveCharge(id) {
+            const r = chargeRequests.find(req => req.id === id);
+            users.find(u => u.id === r.userId).balance += r.amount;
+            r.status = '승인됨'; saveChargeData(); alert("승인 완료");
+        }
+        function rejectCharge(id) { if(confirm("신청을 거부하시겠습니까?")) { chargeRequests.find(r => r.id === id).status = '거부됨'; saveChargeData(); alert("거부 처리됨"); } }
+        function saveChargeData() { localStorage.setItem(DB_KEY + '_users', JSON.stringify(users)); localStorage.setItem(DB_KEY + '_charge_req', JSON.stringify(chargeRequests)); updateUI(); }
+        
+        function sendMessage(role) {
+            const inputId = role === 'ADMIN' ? 'admin-chat-input' : 'chat-input';
+            const text = document.getElementById(inputId).value.trim();
+            if(!text) return;
+            messages.push({ id: Date.now(), sender: currentUser.id, receiver: role === 'ADMIN' ? selectedUserForChat : 'admin', text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+            localStorage.setItem(DB_KEY + '_messages', JSON.stringify(messages));
+            document.getElementById(inputId).value = '';
+            role === 'ADMIN' ? renderAdminChat(selectedUserForChat) : renderUserChat();
+            renderAdminChatUserList();
+        }
+        function renderUserChat() {
+            const win = document.getElementById('chat-window');
+            win.innerHTML = messages.filter(m => m.sender === currentUser.id || m.receiver === currentUser.id).map(m => `<div class="${m.sender === currentUser.id ? 'chat-bubble-me' : 'chat-bubble-other'} p-3 max-w-[80%] font-bold text-xs mb-1 shadow-sm">${m.text}</div>`).join('');
+            win.scrollTop = win.scrollHeight;
+        }
+        function renderAdminChatUserList() {
+            const uList = [...new Set(messages.map(m => m.sender === 'admin' ? m.receiver : m.sender))];
+            document.getElementById('admin-chat-user-list').innerHTML = uList.map(uId => `<div onclick="selectChatUser('${uId}')" class="p-3 rounded-xl cursor-pointer font-bold text-xs mb-1 ${selectedUserForChat === uId ? 'bg-green-500 text-white shadow-md' : 'bg-white border'}">${uId}</div>`).join('');
+        }
+        function selectChatUser(uId) { selectedUserForChat = uId; document.getElementById('admin-chat-controls').classList.remove('hidden'); renderAdminChat(uId); renderAdminChatUserList(); }
+        function renderAdminChat(uId) {
+            const win = document.getElementById('admin-chat-window');
+            win.innerHTML = messages.filter(m => (m.sender === uId && m.receiver === 'admin') || (m.sender === 'admin' && m.receiver === uId)).map(m => `<div class="${m.sender === 'admin' ? 'chat-bubble-me' : 'chat-bubble-other'} p-2 max-w-[90%] text-[10px] font-bold mb-1 shadow-sm">${m.text}</div>`).join('');
+            win.scrollTop = win.scrollHeight;
+        }
+
+        function switchAdminTab(t) { ['products', 'orders', 'charge', 'messages', 'settings'].forEach(tab => { document.getElementById('admin-tab-' + tab).classList.toggle('hidden', t !== tab); const b = document.getElementById('btn-tab-' + tab); if(b) b.className = t === tab ? "px-4 py-2 rounded-xl bg-slate-900 text-white" : "px-4 py-2 rounded-xl bg-white border text-slate-400"; }); }
+        function switchView(v) { ['shop', 'mypage', 'chat'].forEach(view => { document.getElementById('view-' + view).classList.toggle('hidden', v !== view); document.getElementById('nav-' + view).className = v === view ? 'tab-active py-2' : 'py-2'; }); if(v === 'chat') renderUserChat(); if(v === 'mypage') renderMyOrders(); }
+        function renderMyOrders() { const my = orders.filter(o => o.user === currentUser.id); document.getElementById('mypage-order-list').innerHTML = my.map(o => `<div class="bg-white p-6 rounded-3xl border flex justify-between items-center shadow-sm"><div><p class="text-[10px] font-bold text-slate-400">${o.date} [${o.type}]</p><h4 class="font-bold text-sm text-slate-700">${o.items}</h4><p class="text-[9px] text-slate-400">${o.address}</p></div><span class="font-black text-green-600">${o.total.toLocaleString()}원</span></div>`).join('') || '<p class="text-center py-20 text-slate-300 font-bold">주문 내역이 없습니다.</p>'; }
+        function renderAdminOrders() { document.getElementById('admin-order-list').innerHTML = orders.map(o => `<tr class="border-b"><td class="py-2 px-2 font-bold">${o.user}</td><td>${o.items}</td><td>${o.total.toLocaleString()}원</td><td>${o.type}</td><td>${o.address}</td></tr>`).join('') || '<tr><td colspan="5" class="text-center py-10">내역 없음</td></tr>'; }
+        function renderAdminChargeList() { document.getElementById('admin-charge-list').innerHTML = chargeRequests.filter(r => r.status === '대기').map(r => `<tr><td class="py-4 font-bold text-slate-700">${r.userId}</td><td>${r.name}</td><td class="font-black text-green-600">${r.amount.toLocaleString()}원</td><td class="text-right py-4 flex justify-end gap-2"><button onclick="approveCharge(${r.id})" class="bg-black text-white px-3 py-1.5 rounded-lg font-bold">승인</button><button onclick="rejectCharge(${r.id})" class="bg-red-500 text-white px-3 py-1.5 rounded-lg font-bold">거부</button></td></tr>`).join('') || '<tr><td colspan="4" class="text-center py-10 text-slate-400 font-bold">신청 내역 없음</td></tr>'; }
+        function saveStoreSettings() { storeSettings.account = document.getElementById('admin-account-input').value; localStorage.setItem(DB_KEY + '_settings', JSON.stringify(storeSettings)); alert("계좌 정보가 저장되었습니다."); }
+        function openChargeModal() { document.getElementById('charge-account-display').innerText = storeSettings.account; document.getElementById('charge-modal').classList.remove('hidden'); }
+        function closeChargeModal() { document.getElementById('charge-modal').classList.add('hidden'); }
+        function requestCharge() {
+            const n = document.getElementById('charge-name').value;
+            const a = parseInt(document.getElementById('charge-amount').value);
+            if(n && a) { chargeRequests.push({ id: Date.now(), userId: currentUser.id, name: n, amount: a, status: '대기' }); localStorage.setItem(DB_KEY + '_charge_req', JSON.stringify(chargeRequests)); alert("충전 신청 완료!"); closeChargeModal(); updateUI(); }
+        }
+        function toggleAdminModal() { document.getElementById('admin-modal').classList.toggle('hidden'); switchAdminTab('products'); }
+        if(currentUser) showMain();
+    </script>
+</body>
+</html>
